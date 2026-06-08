@@ -74,6 +74,24 @@ export const router = createRouter({
           meta: { requiresAdmin: true },
         },
         {
+          path: 'admin/antigravity-account-inspection',
+          name: 'admin-antigravity-account-inspection',
+          component: () => import('@/features/antigravity-keeper/views/AntigravityKeeperInspectionView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'admin/antigravity-account-status-claude',
+          name: 'admin-antigravity-account-status-claude',
+          component: () => import('@/features/antigravity-keeper/views/AntigravityKeeperStatusClaudeView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'admin/antigravity-account-status-gemini',
+          name: 'admin-antigravity-account-status-gemini',
+          component: () => import('@/features/antigravity-keeper/views/AntigravityKeeperStatusGeminiView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
           path: 'admin/pricing',
           name: 'admin-pricing',
           component: () => import('@/features/pricing/views/ModelPricesView.vue'),

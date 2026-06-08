@@ -622,3 +622,138 @@ export interface ApiKeyCreatePayload {
 export interface ApiKeyUpdatePayload {
   description: string
 }
+
+export interface AntigravityKeeperPriorityRule {
+  account_type: string
+  priority: number
+}
+
+export interface AntigravityKeeperSettings {
+  cliaproxy_url: string
+  management_key_set: boolean
+  schedule_cron: string
+  next_run_times: string[]
+  quota_threshold: number
+  usage_timeout_seconds: number
+  cpa_timeout_seconds: number
+  max_retries: number
+  worker_threads: number
+  conditional_refresh_interval_seconds: number
+  account_refresh_cache_minutes: number
+  dry_run: boolean
+  enable_credential_websockets: boolean
+  auto_start_daemon: boolean
+  priority_rules: AntigravityKeeperPriorityRule[]
+}
+
+export interface AntigravityKeeperSettingsUpdatePayload {
+  schedule_cron?: string
+  quota_threshold?: number
+  usage_timeout_seconds?: number
+  cpa_timeout_seconds?: number
+  max_retries?: number
+  worker_threads?: number
+  conditional_refresh_interval_seconds?: number
+  account_refresh_cache_minutes?: number
+  dry_run?: boolean
+  enable_credential_websockets?: boolean
+  auto_start_daemon?: boolean
+  priority_rules?: AntigravityKeeperPriorityRule[]
+}
+
+export interface AntigravityKeeperCronPreviewPayload {
+  schedule_cron: string
+}
+
+export interface AntigravityKeeperCronPreviewResponse {
+  schedule_cron: string
+  next_run_times: string[]
+}
+
+export interface AntigravityKeeperStats {
+  total: number
+  healthy: number
+  status_disabled: number
+  status_enabled: number
+  priority_degraded: number
+  priority_restored: number
+  skipped: number
+  network_error: number
+}
+
+export interface AntigravityKeeperStatus {
+  running: boolean
+  running_modes: string[]
+  daemon_running: boolean
+  state: string
+  detail: string
+  mode: string | null
+  last_started_at: string | null
+  last_finished_at: string | null
+  stats: AntigravityKeeperStats
+  logs: string[]
+}
+
+export interface AntigravityKeeperQuotaWindowUsage {
+  window_start: string
+  window_end: string
+  reset_at: string
+  window_seconds: number
+  records: number
+  success_records: number
+  failed_records: number
+  input_tokens: number
+  output_tokens: number
+  cached_tokens: number
+  reasoning_tokens: number
+  total_tokens: number
+  estimated_cost_usd: number
+  unpriced_records: number
+  stale: boolean
+  window_source: string
+}
+
+export interface AntigravityKeeperAccount {
+  name: string
+  email: string | null
+  account_type: string | null
+  disabled: boolean
+  priority: number | null
+  primary_used_percent: number | null
+  secondary_used_percent: number | null
+  primary_reset_at: string | null
+  secondary_reset_at: string | null
+  primary_window_seconds: number | null
+  secondary_window_seconds: number | null
+  primary_window_usage: AntigravityKeeperQuotaWindowUsage | null
+  secondary_window_usage: AntigravityKeeperQuotaWindowUsage | null
+  quota_threshold: number | null
+  last_status_code: number | null
+  last_error: string | null
+  latest_action: string | null
+  last_checked_at: string | null
+  last_healthy_at: string | null
+}
+
+export interface AntigravityKeeperAccountsResponse {
+  items: AntigravityKeeperAccount[]
+}
+
+export interface AntigravityKeeperBulkDeletePayload {
+  auth_names: string[]
+}
+
+export interface AntigravityKeeperRefreshPayload {
+  auth_names: string[]
+}
+
+export interface AntigravityKeeperBulkDeleteFailure {
+  name: string
+  message: string
+}
+
+export interface AntigravityKeeperBulkDeleteResponse {
+  status: string
+  deleted: string[]
+  failed: AntigravityKeeperBulkDeleteFailure[]
+}

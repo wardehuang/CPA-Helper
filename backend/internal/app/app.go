@@ -46,15 +46,17 @@ var defaultKeeperPriorityRules = map[string]int{
 }
 
 type App struct {
-	db               *sql.DB
-	repoRoot         string
-	dataDir          string
-	frontendDist     string
-	frontendFS       fs.FS
-	frontendEnv      bool
-	collector        *CollectorRunner
-	keeper           *KeeperRunner
-	keeperUsageCache keeperWindowUsageCache
+	db                          *sql.DB
+	repoRoot                    string
+	dataDir                     string
+	frontendDist                string
+	frontendFS                  fs.FS
+	frontendEnv                 bool
+	collector                   *CollectorRunner
+	keeper                      *KeeperRunner
+	keeperUsageCache            keeperWindowUsageCache
+	antigravityKeeper           *antigravityKeeperRunner
+	antigravityKeeperUsageCache antigravityKeeperWindowUsageCache
 }
 
 type AppError struct {
@@ -151,9 +153,12 @@ func NewWithOptions(ctx context.Context, options NewOptions) (*App, error) {
 func (a *App) startBackground(ctx context.Context) {
 	a.collector = NewCollectorRunner(a)
 	a.keeper = NewKeeperRunner(a)
+	a.antigravityKeeper = NewAntigravityKeeperRunner(a)
 	a.collector.Start()
 	a.keeper.LoadPersistedState(ctx)
 	a.keeper.StartAutoIfConfigured()
+	a.antigravityKeeper.LoadPersistedState(ctx)
+	a.antigravityKeeper.StartAutoIfConfigured()
 }
 
 func (a *App) Close() {
@@ -162,6 +167,9 @@ func (a *App) Close() {
 	}
 	if a.keeper != nil {
 		a.keeper.Stop()
+	}
+	if a.antigravityKeeper != nil {
+		a.antigravityKeeper.Stop()
 	}
 	if a.db != nil {
 		a.db.Close()
@@ -272,6 +280,7 @@ func (a *App) Routes() http.Handler {
 	mux.HandleFunc("/api/card-shops/tags", a.wrap(a.handleCardShopTags))
 	mux.HandleFunc("/api/card-shops", a.wrap(a.handleCardShops))
 	mux.HandleFunc("/api/codex-keeper/", a.wrap(a.handleCodexKeeper))
+	mux.HandleFunc("/api/antigravity-keeper/", a.wrap(a.handleAntigravityKeeper))
 	mux.HandleFunc("/", a.wrap(a.handleSPA))
 	return withCORS(mux)
 }
@@ -487,12 +496,14 @@ type LiteLLMProxyConfig struct {
 }
 
 type AppConfig struct {
-	Collector               CollectorConfig    `json:"collector"`
-	CodexKeeper             KeeperConfig       `json:"codex_keeper"`
-	CodexKeeperPriorityRule map[string]int     `json:"codex_keeper_priority_rules"`
-	LiteLLMProxy            LiteLLMProxyConfig `json:"litellm_proxy"`
-	ModelRequestURL         string             `json:"model_request_url"`
-	SessionSecret           string             `json:"session_secret"`
+	Collector                     CollectorConfig    `json:"collector"`
+	CodexKeeper                   KeeperConfig       `json:"codex_keeper"`
+	CodexKeeperPriorityRule       map[string]int     `json:"codex_keeper_priority_rules"`
+	AntigravityKeeper             KeeperConfig       `json:"antigravity_keeper"`
+	AntigravityKeeperPriorityRule map[string]int     `json:"antigravity_keeper_priority_rules"`
+	LiteLLMProxy                  LiteLLMProxyConfig `json:"litellm_proxy"`
+	ModelRequestURL               string             `json:"model_request_url"`
+	SessionSecret                 string             `json:"session_secret"`
 }
 
 func defaultConfig() (AppConfig, error) {
@@ -524,6 +535,20 @@ func defaultConfig() (AppConfig, error) {
 			AutoStartDaemon:                   false,
 		},
 		CodexKeeperPriorityRule: clonePriorityRules(defaultKeeperPriorityRules),
+		AntigravityKeeper: KeeperConfig{
+			ScheduleCron:                      "*/30 * * * *",
+			QuotaThreshold:                    100,
+			UsageTimeoutSeconds:               30,
+			CPATimeoutSeconds:                 30,
+			MaxRetries:                        2,
+			WorkerThreads:                     8,
+			ConditionalRefreshIntervalSeconds: 30,
+			AccountRefreshCacheMinutes:        10,
+			DryRun:                            true,
+			EnableCredentialWebsockets:        false,
+			AutoStartDaemon:                   false,
+		},
+		AntigravityKeeperPriorityRule: clonePriorityRules(defaultKeeperPriorityRules),
 		LiteLLMProxy: LiteLLMProxyConfig{
 			Enabled:  false,
 			ProxyURL: "",
@@ -547,15 +572,16 @@ func (a *App) loadConfig(ctx context.Context) (AppConfig, error) {
 	row := a.db.QueryRowContext(ctx, `
 		SELECT collector_enabled, cliaproxy_url, management_key, queue_name, batch_size,
 		       poll_interval_seconds, retry_interval_seconds, codex_keeper_settings,
-		       codex_keeper_priority_rules, litellm_proxy_enabled, litellm_proxy_url,
+		       codex_keeper_priority_rules, antigravity_keeper_settings, antigravity_keeper_priority_rules,
+		       litellm_proxy_enabled, litellm_proxy_url,
 		       model_request_url, session_secret
 		FROM app_settings WHERE id = 1
 	`)
 	var collectorEnabled, litellmProxyEnabled bool
-	var cliaproxyURL, managementKey, queueName, keeperJSON, rulesJSON, litellmProxyURL, modelRequestURL, sessionSecret string
+	var cliaproxyURL, managementKey, queueName, keeperJSON, rulesJSON, antigravityKeeperJSON, antigravityRulesJSON, litellmProxyURL, modelRequestURL, sessionSecret string
 	var batchSize int
 	var pollInterval, retryInterval float64
-	if err := row.Scan(&collectorEnabled, &cliaproxyURL, &managementKey, &queueName, &batchSize, &pollInterval, &retryInterval, &keeperJSON, &rulesJSON, &litellmProxyEnabled, &litellmProxyURL, &modelRequestURL, &sessionSecret); err != nil {
+	if err := row.Scan(&collectorEnabled, &cliaproxyURL, &managementKey, &queueName, &batchSize, &pollInterval, &retryInterval, &keeperJSON, &rulesJSON, &antigravityKeeperJSON, &antigravityRulesJSON, &litellmProxyEnabled, &litellmProxyURL, &modelRequestURL, &sessionSecret); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return AppConfig{}, fmt.Errorf("%w: app_settings id=1 is missing; run `cpa-helper migrate`", ErrAppSettingsMissing)
 		}
@@ -582,6 +608,16 @@ func (a *App) loadConfig(ctx context.Context) (AppConfig, error) {
 		var rules map[string]int
 		if json.Unmarshal([]byte(rulesJSON), &rules) == nil {
 			cfg.CodexKeeperPriorityRule = normalizePriorityRules(rules)
+		}
+	}
+	if strings.TrimSpace(antigravityKeeperJSON) != "" {
+		_ = json.Unmarshal([]byte(antigravityKeeperJSON), &cfg.AntigravityKeeper)
+		cfg.AntigravityKeeper = normalizeKeeperConfig(cfg.AntigravityKeeper)
+	}
+	if strings.TrimSpace(antigravityRulesJSON) != "" {
+		var rules map[string]int
+		if json.Unmarshal([]byte(antigravityRulesJSON), &rules) == nil {
+			cfg.AntigravityKeeperPriorityRule = normalizePriorityRules(rules)
 		}
 	}
 	if strings.TrimSpace(sessionSecret) != "" {
@@ -640,15 +676,24 @@ func (a *App) saveConfig(ctx context.Context, cfg AppConfig) error {
 	if err != nil {
 		return err
 	}
+	antigravityKeeperBytes, err := json.Marshal(normalizeKeeperConfig(cfg.AntigravityKeeper))
+	if err != nil {
+		return err
+	}
+	antigravityRulesBytes, err := json.Marshal(normalizePriorityRules(cfg.AntigravityKeeperPriorityRule))
+	if err != nil {
+		return err
+	}
 	_, err = a.db.ExecContext(ctx, `
 		UPDATE app_settings
 		SET collector_enabled = ?, cliaproxy_url = ?, management_key = ?, queue_name = ?,
 		    batch_size = ?, poll_interval_seconds = ?, retry_interval_seconds = ?,
 		    codex_keeper_settings = ?, codex_keeper_priority_rules = ?,
+		    antigravity_keeper_settings = ?, antigravity_keeper_priority_rules = ?,
 		    litellm_proxy_enabled = ?, litellm_proxy_url = ?,
 		    model_request_url = ?, session_secret = ?, updated_at = ?
 		WHERE id = 1
-	`, cfg.Collector.Enabled, strings.TrimRight(strings.TrimSpace(cfg.Collector.CLIProxyURL), "/"), strings.TrimSpace(cfg.Collector.ManagementKey), strings.TrimSpace(cfg.Collector.QueueName), cfg.Collector.BatchSize, cfg.Collector.PollIntervalSeconds, cfg.Collector.RetryIntervalSeconds, string(keeperBytes), string(rulesBytes), cfg.LiteLLMProxy.Enabled, strings.TrimSpace(cfg.LiteLLMProxy.ProxyURL), strings.TrimRight(strings.TrimSpace(cfg.ModelRequestURL), "/"), cfg.SessionSecret, dbTime(time.Now()))
+	`, cfg.Collector.Enabled, strings.TrimRight(strings.TrimSpace(cfg.Collector.CLIProxyURL), "/"), strings.TrimSpace(cfg.Collector.ManagementKey), strings.TrimSpace(cfg.Collector.QueueName), cfg.Collector.BatchSize, cfg.Collector.PollIntervalSeconds, cfg.Collector.RetryIntervalSeconds, string(keeperBytes), string(rulesBytes), string(antigravityKeeperBytes), string(antigravityRulesBytes), cfg.LiteLLMProxy.Enabled, strings.TrimSpace(cfg.LiteLLMProxy.ProxyURL), strings.TrimRight(strings.TrimSpace(cfg.ModelRequestURL), "/"), cfg.SessionSecret, dbTime(time.Now()))
 	return err
 }
 

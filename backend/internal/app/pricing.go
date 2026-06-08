@@ -776,6 +776,15 @@ func findMatchingPrice(prices map[[2]string]ModelPrice, provider, model *string)
 	if providerKey == "claude" {
 		candidates = append(candidates, "anthropic")
 	}
+	if providerKey == "antigravity" {
+		if strings.HasPrefix(modelKey, "claude-") {
+			candidates = append(candidates, "anthropic", "claude")
+		} else if strings.HasPrefix(modelKey, "gpt-") {
+			candidates = append(candidates, "openai", "codex")
+		} else if strings.HasPrefix(modelKey, "gemini-") {
+			candidates = append(candidates, "google", "google_ai_studio", "vertex_ai", "gemini")
+		}
+	}
 	for _, candidate := range candidates {
 		if price, ok := prices[[2]string{candidate, modelKey}]; ok {
 			return &price

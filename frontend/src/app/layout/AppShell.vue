@@ -136,6 +136,16 @@ const accountInspectionMenuItems = computed<MenuOption[]>(() => [
   { label: t('账号状态', 'Account Status'), key: '/admin/account-status', icon: renderIcon(ListChecks) },
 ])
 
+const antigravityAccountInspectionMenuItems = computed<MenuOption[]>(() => [
+  {
+    label: t('巡检设置', 'Inspection Settings'),
+    key: '/admin/antigravity-account-inspection',
+    icon: renderIcon(Activity),
+  },
+  { label: t('账号状态 (Claude)', 'Account Status (Claude)'), key: '/admin/antigravity-account-status-claude', icon: renderIcon(ListChecks) },
+  { label: t('账号状态 (Gemini Pro)', 'Account Status (Gemini Pro)'), key: '/admin/antigravity-account-status-gemini', icon: renderIcon(ListChecks) },
+])
+
 const accountMenuItems = computed<MenuOption[]>(() => [
   { label: t('我的用量', 'My Usage'), key: '/account/usage', icon: renderIcon(BarChart3) },
   { label: t('我的明细', 'My Records'), key: '/account/records', icon: renderIcon(List) },
@@ -173,22 +183,25 @@ const menuOptions = computed<MenuOption[]>(() => {
   const groups: MenuOption[] = []
   if (isAdmin.value) {
     groups.push({
-      type: 'group',
       label: t('管理中心', 'Admin Center'),
       key: 'admin-group',
       icon: renderIcon(Shield),
       children: adminMenuItems.value,
     })
     groups.push({
-      type: 'group',
-      label: t('账号巡检', 'Account Inspection'),
+      label: t('Codex账号巡检', 'Codex Account Inspection'),
       key: 'account-inspection-group',
       icon: renderIcon(Activity),
       children: accountInspectionMenuItems.value,
     })
+    groups.push({
+      label: t('Antigravity账号巡检', 'Antigravity Account Inspection'),
+      key: 'antigravity-account-inspection-group',
+      icon: renderIcon(Activity),
+      children: antigravityAccountInspectionMenuItems.value,
+    })
   }
   groups.push({
-    type: 'group',
     label: t('我的账户', 'My Account'),
     key: 'account-group',
     icon: renderIcon(UserRound),
@@ -199,7 +212,7 @@ const menuOptions = computed<MenuOption[]>(() => {
 
 const leafMenuOptions = computed(() =>
   isAdmin.value
-    ? [...adminMenuItems.value, ...accountInspectionMenuItems.value, ...accountMenuItems.value]
+    ? [...adminMenuItems.value, ...accountInspectionMenuItems.value, ...antigravityAccountInspectionMenuItems.value, ...accountMenuItems.value]
     : accountMenuItems.value,
 )
 
@@ -312,7 +325,7 @@ const logoutAriaLabel = computed(() => t('退出登录', 'Sign out'))
           <img :src="logoUrl" alt="">
         </div>
         <div class="brand-copy">
-          <strong>CPA-Helper</strong>
+          <strong>CPA-Helper (Anti) v15</strong>
           <span>{{ accountText }} · {{ roleText }}</span>
         </div>
       </div>
@@ -382,7 +395,7 @@ const logoutAriaLabel = computed(() => t('退出登录', 'Sign out'))
           <img class="mobile-brand-logo" :src="logoUrl" alt="" aria-hidden="true">
           <div class="mobile-brand-copy">
             <div class="mobile-title-row">
-              <strong>CPA-Helper</strong>
+              <strong>CPA-Helper (Ward)</strong>
               <span class="mobile-version-badge">{{ appVersion }}</span>
             </div>
             <span>{{ accountText }} · {{ roleText }}</span>
@@ -555,9 +568,10 @@ const logoutAriaLabel = computed(() => t('退出登录', 'Sign out'))
 
 .brand-copy strong {
   color: var(--cpa-text-strong);
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 760;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .mobile-version-badge {

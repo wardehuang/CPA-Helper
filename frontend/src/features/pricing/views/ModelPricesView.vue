@@ -45,7 +45,7 @@ type PriceTableLayoutProps =
   | { flexHeight: false; maxHeight: string }
 
 type PriceRowStatus = 'missing' | 'litellm' | 'manual'
-type PriceStatusFilter = 'cpa' | 'missing' | 'litellm' | 'manual' | 'library'
+type PriceStatusFilter = 'cpa' | 'missing' | 'litellm' | 'manual' | 'library' | 'priced'
 type BillingUnit = 'token' | 'request'
 type PriceFieldName = keyof Pick<
   ModelPrice,
@@ -88,7 +88,7 @@ const editingId = ref<number | null>(null)
 const prices = ref<ModelPrice[]>([])
 const catalog = ref<ModelPriceCatalogResponse | null>(null)
 const selectedProvider = ref<string | null>(null)
-const selectedStatus = ref<PriceStatusFilter | null>(null)
+const selectedStatus = ref<PriceStatusFilter[]>([])
 const searchQuery = ref('')
 const isDesktopPriceLayout = ref(desktopPriceLayoutQuery.matches)
 const pagination = reactive({
@@ -169,6 +169,7 @@ const liteLLMProxyHint = computed(() =>
 
 const statusOptions = computed<Array<{ label: string; value: PriceStatusFilter }>>(() => [
   { label: t('CPA 可用模型', 'CPA available models'), value: 'cpa' },
+  { label: t('已定价', 'Priced'), value: 'priced' },
   { label: t('未定价', 'Unpriced'), value: 'missing' },
   { label: 'LiteLLM', value: 'litellm' },
   { label: t('手动', 'Manual'), value: 'manual' },
@@ -180,7 +181,7 @@ const filteredPrices = computed(() => {
     if (selectedProvider.value && row.provider !== selectedProvider.value) {
       return false
     }
-    if (selectedStatus.value && !rowMatchesStatus(row, selectedStatus.value)) {
+    if (selectedStatus.value.length > 0 && !selectedStatus.value.every((status) => rowMatchesStatus(row, status))) {
       return false
     }
     return priceMatchesSearch(row)
@@ -239,6 +240,8 @@ function rowMatchesStatus(row: PriceDisplayRow, status: PriceStatusFilter) {
       return row.in_cpa
     case 'library':
       return !row.in_cpa
+    case 'priced':
+      return row.status === 'litellm' || row.status === 'manual'
     default:
       return row.status === status
   }
@@ -651,30 +654,35 @@ const columns = computed<DataTableColumns<PriceDisplayRow>>(() => [
     key: 'request_usd',
     width: 110,
     render: renderRequestPriceValue,
+    sorter: (a, b) => (a.price?.request_usd ?? -1) - (b.price?.request_usd ?? -1),
   },
   {
     title: t('输入 ($/MTok)', 'Input ($/MTok)'),
     key: 'input_usd_per_million',
     width: 125,
     render: (row) => renderTokenPriceValue(row, 'input_usd_per_million'),
+    sorter: (a, b) => (a.price?.input_usd_per_million ?? -1) - (b.price?.input_usd_per_million ?? -1),
   },
   {
     title: t('输出 ($/MTok)', 'Output ($/MTok)'),
     key: 'output_usd_per_million',
     width: 125,
     render: (row) => renderTokenPriceValue(row, 'output_usd_per_million'),
+    sorter: (a, b) => (a.price?.output_usd_per_million ?? -1) - (b.price?.output_usd_per_million ?? -1),
   },
   {
     title: t('缓存读 ($/MTok)', 'Cache read ($/MTok)'),
     key: 'cache_read_usd_per_million',
     width: 125,
     render: (row) => renderTokenPriceValue(row, 'cache_read_usd_per_million'),
+    sorter: (a, b) => (a.price?.cache_read_usd_per_million ?? -1) - (b.price?.cache_read_usd_per_million ?? -1),
   },
   {
     title: t('缓存写 ($/MTok)', 'Cache write ($/MTok)'),
     key: 'cache_creation_usd_per_million',
     width: 125,
     render: (row) => renderTokenPriceValue(row, 'cache_creation_usd_per_million'),
+    sorter: (a, b) => (a.price?.cache_creation_usd_per_million ?? -1) - (b.price?.cache_creation_usd_per_million ?? -1),
   },
   {
     title: t('更新', 'Updated'),
@@ -785,7 +793,9 @@ onBeforeUnmount(() => {
                 v-model:value="selectedStatus"
                 class="status-filter"
                 :options="statusOptions"
+                multiple
                 clearable
+                max-tag-count="responsive"
                 :placeholder="t('全部状态', 'All statuses')"
               />
               <NInput
