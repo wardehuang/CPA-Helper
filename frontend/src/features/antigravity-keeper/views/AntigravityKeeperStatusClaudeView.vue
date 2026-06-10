@@ -1909,7 +1909,7 @@ onBeforeUnmount(() => {
     <section class="panel account-list-panel">
       <div class="status-toolbar">
         <div class="toolbar-heading">
-          <div>
+          <div class="toolbar-title-group">
             <h2 class="toolbar-title">{{ t('账号列表', 'Account List') }}</h2>
             <p class="toolbar-subtitle">
               {{ t(`正常 ${filteredNormalAccounts.length} / ${enabledAccountCount} 个账号`, `Normal ${filteredNormalAccounts.length} / ${enabledAccountCount} accounts`) }}
@@ -2646,6 +2646,13 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.toolbar-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
 .toolbar-title {
   margin: 0;
   color: var(--cpa-text);
@@ -2655,7 +2662,7 @@ onBeforeUnmount(() => {
 }
 
 .toolbar-subtitle {
-  margin: 3px 0 0;
+  margin: 0;
   color: var(--cpa-text-muted);
   font-size: 13px;
 }
@@ -2766,6 +2773,9 @@ onBeforeUnmount(() => {
 }
 
 .account-section-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -2778,7 +2788,7 @@ onBeforeUnmount(() => {
 }
 
 .account-section-subtitle {
-  margin: 3px 0 0;
+  margin: 0;
   color: var(--cpa-text-muted);
   font-size: 12px;
 }
