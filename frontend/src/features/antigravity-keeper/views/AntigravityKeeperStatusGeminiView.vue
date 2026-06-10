@@ -3698,6 +3698,11 @@ onBeforeUnmount(() => {
 
 :global(.account-actions) {
   justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+:global(.account-table .n-data-table-tr:hover .account-actions) {
+  opacity: 1;
 }
 
 .empty-state {
