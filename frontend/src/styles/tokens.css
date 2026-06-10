@@ -245,15 +245,14 @@ pre {
   display: grid;
   grid-template-areas:
     "icon label"
-    "icon value"
-    "icon footnote";
-  grid-template-columns: 58px minmax(0, 1fr);
-  column-gap: 14px;
+    "icon value";
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 12px;
   min-width: 0;
-  min-height: 112px;
+  min-height: 72px;
   align-content: center;
   align-items: center;
-  padding: 18px 16px;
+  padding: 12px 14px;
   overflow: hidden;
   border: 1px solid rgb(122 151 157 / 13%);
   border-radius: var(--cpa-radius);
@@ -315,8 +314,7 @@ pre {
 .metric-card:not(:has(.metric-icon)) {
   grid-template-areas:
     "label"
-    "value"
-    "footnote";
+    "value";
   grid-template-columns: 1fr;
 }
 
@@ -325,8 +323,8 @@ pre {
   grid-area: icon;
   position: relative;
   z-index: 1;
-  width: 58px;
-  height: 58px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border-radius: var(--cpa-radius);
   background: var(--metric-wash, var(--cpa-primary-weak));
@@ -360,12 +358,7 @@ pre {
 }
 
 .metric-footnote {
-  grid-area: footnote;
-  position: relative;
-  z-index: 1;
-  margin-top: 4px;
-  color: var(--cpa-text-muted);
-  font-size: 12px;
+  display: none;
 }
 
 .grid-two {
@@ -532,20 +525,18 @@ pre {
   .metric-card {
     grid-template-areas:
       "icon label"
-      "value value"
-      "footnote footnote";
+      "value value";
     grid-template-columns: 34px minmax(0, 1fr);
     column-gap: 8px;
-    min-height: 82px;
-    align-content: start;
+    min-height: 64px;
+    align-content: center;
     padding: 10px;
   }
 
   .metric-card:not(:has(.metric-icon)) {
     grid-template-areas:
       "label"
-      "value"
-      "footnote";
+      "value";
     grid-template-columns: 1fr;
   }
 
@@ -567,9 +558,7 @@ pre {
   }
 
   .metric-footnote {
-    margin-top: 3px;
-    font-size: 11px;
-    line-height: 1.22;
+    display: none;
   }
 }
 

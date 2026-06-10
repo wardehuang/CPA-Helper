@@ -2566,10 +2566,7 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(6, minmax(112px, 1fr));
 }
 
-.account-metrics .metric-card {
-  min-height: 104px;
-  padding: 14px 12px;
-}
+
 
 .account-metrics .metric-action {
   width: 100%;
@@ -2611,6 +2608,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  margin-left: -4px;
 }
 
 .inspection-status-tag {
