@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   NButton,
@@ -1827,23 +1827,6 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="page account-status-page">
-    <div class="page-header account-page-header">
-      <div class="account-header-copy">
-        <div class="account-header-title-row">
-          <h1 class="page-title">{{ t('账号状态', 'Account Status') }}</h1>
-          <div class="header-actions">
-            <NButton secondary :loading="isLoading" @click="loadAccounts">
-              <template #icon>
-                <NIcon :component="RefreshCw" />
-              </template>
-              {{ t('重新加载', 'Reload') }}
-            </NButton>
-          </div>
-        </div>
-        <p class="page-subtitle">{{ t('查看 Codex auth file 的健康、额度和优先级维护结果', 'View Codex auth file health, quota, and priority maintenance results') }}</p>
-      </div>
-    </div>
-
     <div class="metric-grid account-metrics">
       <div class="metric-card inspection-status-card">
         <div class="metric-icon" aria-hidden="true">
