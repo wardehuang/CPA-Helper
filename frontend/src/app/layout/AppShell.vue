@@ -21,6 +21,7 @@ import {
   BarChart3,
   Cpu,
   DollarSign,
+  FileText,
   Github,
   KeyRound,
   Languages,
@@ -125,6 +126,7 @@ const adminMenuItems = computed<MenuOption[]>(() => [
   { label: t('模型价格', 'Model Prices'), key: '/admin/pricing', icon: renderIcon(DollarSign) },
   { label: t('卡网收录', 'Card Shops'), key: '/admin/card-shops', icon: renderIcon(Store) },
   { label: t('系统设置', 'System Settings'), key: '/admin/settings', icon: renderIcon(Settings) },
+  { label: t('请求日志', 'Request Logs'), key: '/admin/server-logs', icon: renderIcon(FileText) },
 ])
 
 const accountInspectionMenuItems = computed<MenuOption[]>(() => [

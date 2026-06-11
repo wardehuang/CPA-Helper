@@ -16,6 +16,7 @@ import {
   NSelect,
   NSpace,
   NTag,
+  NCollapseTransition,
   useMessage,
   type DataTableColumns,
   type DataTableRowKey,
@@ -25,6 +26,7 @@ import {
   ArrowLeft,
   BarChart3,
   ChevronDown,
+  ChevronUp,
   CircleDot,
   Gauge,
   PauseCircle,
@@ -112,6 +114,9 @@ const keeperStatus = ref<CodexKeeperStatus | null>(null)
 const selectedAccount = ref<CodexKeeperAccount | null>(null)
 const selectedDisabledAccountKeys = ref<DataTableRowKey[]>([])
 const refreshSelectMode = ref(false)
+const isToolbarExpanded = ref(true)
+const isDisabledSectionExpanded = ref(true)
+const isNormalSectionExpanded = ref(true)
 const selectedRefreshAccountNames = ref<string[]>([])
 const detailOpen = ref(false)
 const accountDisplaySize = ref<AccountDisplaySize>(50)
@@ -1917,7 +1922,7 @@ onBeforeUnmount(() => {
 
     <section class="panel account-list-panel">
       <div class="status-toolbar">
-        <div class="toolbar-heading">
+        <div class="toolbar-heading" style="cursor: pointer;" @click="isToolbarExpanded = !isToolbarExpanded">
           <div class="toolbar-title-group">
             <h2 class="toolbar-title">{{ t('账号列表', 'Account List') }}</h2>
             <p class="toolbar-subtitle">
@@ -1927,24 +1932,29 @@ onBeforeUnmount(() => {
               </template>
             </p>
           </div>
-          <NTag v-if="activeFilterCount > 0" size="small" type="info" :bordered="false">
-            {{ t(`已筛选 ${activeFilterCount} 项`, `${activeFilterCount} filters active`) }}
-          </NTag>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <NTag v-if="activeFilterCount > 0" size="small" type="info" :bordered="false">
+              {{ t(`已筛选 ${activeFilterCount} 项`, `${activeFilterCount} filters active`) }}
+            </NTag>
+            <NIcon :component="ChevronDown" size="18" :style="{ color: 'var(--cpa-text-muted)', transform: isToolbarExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }" />
+          </div>
         </div>
-        <div class="filter-grid">
-          <NInput v-model:value="filters.keyword" clearable :placeholder="t('搜索账号或邮箱', 'Search account or email')" />
-          <NSelect
-            v-model:value="filters.accountType"
-            :options="accountTypeOptions"
-            clearable
-            filterable
-            :placeholder="t('账号类型', 'Account Type')"
-          />
-          <NSelect
-            v-model:value="filters.priority"
-            :options="priorityFilterOptions"
-          />
-        </div>
+        <NCollapseTransition :show="isToolbarExpanded">
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+            <div class="filter-grid">
+              <NInput v-model:value="filters.keyword" clearable :placeholder="t('搜索账号或邮箱', 'Search account or email')" />
+              <NSelect
+                v-model:value="filters.accountType"
+                :options="accountTypeOptions"
+                clearable
+                filterable
+                :placeholder="t('账号类型', 'Account Type')"
+              />
+              <NSelect
+                v-model:value="filters.priority"
+                :options="priorityFilterOptions"
+              />
+            </div>
         <div class="list-control-row">
           <div class="list-main-controls">
             <NDropdown
@@ -2038,14 +2048,16 @@ onBeforeUnmount(() => {
               {{ t('最近巡检', 'Last Inspection') }} {{ accountSortMark('lastCheckedAt') }}
             </NButton>
           </div>
-        </div>
+          </div>
+          </div>
+        </NCollapseTransition>
       </div>
 
       <div v-if="isTableView" class="account-sections">
         <div v-if="showTableLoadingState" class="empty-state">{{ t('账号加载中...', 'Loading accounts...') }}</div>
         <div v-else-if="showEmptyTableState" class="empty-state">{{ t('当前筛选下暂无账号', 'No accounts match the current filter') }}</div>
         <section v-if="showDisabledSection" class="account-section">
-          <div class="account-section-header">
+          <div class="account-section-header" style="cursor: pointer;" @click="isDisabledSectionExpanded = !isDisabledSectionExpanded">
             <div class="account-section-title-group">
               <h3 class="account-section-title">{{ t('已禁用账号', 'Disabled Accounts') }}</h3>
               <p class="account-section-subtitle">
@@ -2058,34 +2070,37 @@ onBeforeUnmount(() => {
                 type="error"
                 :disabled="!canBulkDelete"
                 :loading="isBulkDeleting"
-                @click="openBulkDeleteDialog"
+                @click.stop="openBulkDeleteDialog"
               >
                 <template #icon>
                   <NIcon :component="Trash2" />
                 </template>
                 {{ t(`批量删除（${selectedDisabledCount}）`, `Bulk Delete (${selectedDisabledCount})`) }}
               </NButton>
+              <NIcon :component="ChevronDown" size="18" :style="{ color: 'var(--cpa-text-muted)', marginLeft: '8px', transform: isDisabledSectionExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }" />
             </div>
           </div>
-          <NDataTable
-            class="account-table"
-            size="small"
-            :loading="tableLoading"
-            :columns="disabledColumns"
-            :data="visibleDisabledAccounts"
-            :row-key="accountRowKey"
-            :row-props="accountTableRowProps"
-            :checked-row-keys="selectedDisabledAccountKeys"
-            :pagination="false"
-            v-bind="disabledTableDisplayProps"
-            table-layout="fixed"
-            :scroll-x="disabledTableScrollX"
-            @update:checked-row-keys="handleDisabledSelectionUpdate"
-          >
-            <template #empty>
-              <div class="empty-state">{{ t('当前筛选下暂无已禁用账号', 'No disabled accounts match the current filter') }}</div>
-            </template>
-          </NDataTable>
+          <NCollapseTransition :show="isDisabledSectionExpanded">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <NDataTable
+                class="account-table"
+                size="small"
+                :loading="tableLoading"
+                :columns="disabledColumns"
+                :data="visibleDisabledAccounts"
+                :row-key="accountRowKey"
+                :row-props="accountTableRowProps"
+                :checked-row-keys="selectedDisabledAccountKeys"
+                :pagination="false"
+                v-bind="disabledTableDisplayProps"
+                table-layout="fixed"
+                :scroll-x="disabledTableScrollX"
+                @update:checked-row-keys="handleDisabledSelectionUpdate"
+              >
+                <template #empty>
+                  <div class="empty-state">{{ t('当前筛选下暂无已禁用账号', 'No disabled accounts match the current filter') }}</div>
+                </template>
+              </NDataTable>
           <div v-if="showDisabledPagination" class="account-pagination-row">
             <NPagination
               v-model:page="disabledAccountPage"
@@ -2093,35 +2108,42 @@ onBeforeUnmount(() => {
               :page-size="accountPaginationPageSize"
               :item-count="filteredDisabledAccounts.length"
             />
-          </div>
+            </div>
+            </div>
+          </NCollapseTransition>
         </section>
 
         <section v-if="showNormalSection" class="account-section">
-          <div class="account-section-header">
+          <div class="account-section-header" style="cursor: pointer;" @click="isNormalSectionExpanded = !isNormalSectionExpanded">
             <div class="account-section-title-group">
               <h3 class="account-section-title">{{ t('正常账号', 'Normal Accounts') }}</h3>
               <p class="account-section-subtitle">
                 {{ normalSectionDisplayText }}
               </p>
             </div>
+            <div class="account-section-actions">
+              <NIcon :component="ChevronDown" size="18" :style="{ color: 'var(--cpa-text-muted)', transform: isNormalSectionExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }" />
+            </div>
           </div>
-          <NDataTable
-            class="account-table"
-            size="small"
-            :loading="tableLoading"
-            :columns="normalColumns"
-            :data="visibleNormalAccounts"
-            :row-key="accountRowKey"
-            :row-props="accountTableRowProps"
-            :pagination="false"
-            v-bind="normalTableDisplayProps"
-            table-layout="fixed"
-            :scroll-x="normalTableScrollX"
-          >
-            <template #empty>
-              <div class="empty-state">{{ t('当前筛选下暂无正常账号', 'No normal accounts match the current filter') }}</div>
-            </template>
-          </NDataTable>
+          <NCollapseTransition :show="isNormalSectionExpanded">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <NDataTable
+                class="account-table"
+                size="small"
+                :loading="tableLoading"
+                :columns="normalColumns"
+                :data="visibleNormalAccounts"
+                :row-key="accountRowKey"
+                :row-props="accountTableRowProps"
+                :pagination="false"
+                v-bind="normalTableDisplayProps"
+                table-layout="fixed"
+                :scroll-x="normalTableScrollX"
+              >
+                <template #empty>
+                  <div class="empty-state">{{ t('当前筛选下暂无正常账号', 'No normal accounts match the current filter') }}</div>
+                </template>
+              </NDataTable>
           <div v-if="showNormalPagination" class="account-pagination-row">
             <NPagination
               v-model:page="normalAccountPage"
@@ -2129,7 +2151,9 @@ onBeforeUnmount(() => {
               :page-size="accountPaginationPageSize"
               :item-count="filteredNormalAccounts.length"
             />
-          </div>
+            </div>
+            </div>
+          </NCollapseTransition>
         </section>
       </div>
       <div v-else class="account-card-shell">
@@ -2775,10 +2799,11 @@ onBeforeUnmount(() => {
 
 .account-section-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
+  min-height: 28px;
 }
 
 .account-section-title-group {

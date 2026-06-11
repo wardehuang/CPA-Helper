@@ -104,6 +104,12 @@ export const router = createRouter({
           meta: { requiresAdmin: true },
         },
         {
+          path: 'admin/server-logs',
+          name: 'admin-server-logs',
+          component: () => import('@/features/settings/views/ServerLogsView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
           path: 'account/usage',
           name: 'account-usage',
           component: () => import('@/features/usage/views/UsageHistoryView.vue'),

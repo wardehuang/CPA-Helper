@@ -281,6 +281,8 @@ func (a *App) Routes() http.Handler {
 	mux.HandleFunc("/api/card-shops", a.wrap(a.handleCardShops))
 	mux.HandleFunc("/api/codex-keeper/", a.wrap(a.handleCodexKeeper))
 	mux.HandleFunc("/api/antigravity-keeper/", a.wrap(a.handleAntigravityKeeper))
+	mux.HandleFunc("/api/server-logs", a.wrap(a.handleServerLogs))
+	mux.HandleFunc("/api/server-logs/download", a.wrap(a.handleServerLogDownload))
 	mux.HandleFunc("/", a.wrap(a.handleSPA))
 	return withCORS(mux)
 }
