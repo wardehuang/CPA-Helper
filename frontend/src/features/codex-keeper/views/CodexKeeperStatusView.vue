@@ -2068,6 +2068,7 @@ onBeforeUnmount(() => {
               <NButton
                 secondary
                 type="error"
+                size="small"
                 :disabled="!canBulkDelete"
                 :loading="isBulkDeleting"
                 @click.stop="openBulkDeleteDialog"
