@@ -327,7 +327,7 @@ const logoutAriaLabel = computed(() => t('退出登录', 'Sign out'))
           <img :src="logoUrl" alt="">
         </div>
         <div class="brand-copy">
-          <strong>CPA-Helper (Anti) v15</strong>
+          <strong>CPA-Helper</strong>
           <span>{{ accountText }} · {{ roleText }}</span>
         </div>
       </div>
@@ -397,7 +397,7 @@ const logoutAriaLabel = computed(() => t('退出登录', 'Sign out'))
           <img class="mobile-brand-logo" :src="logoUrl" alt="" aria-hidden="true">
           <div class="mobile-brand-copy">
             <div class="mobile-title-row">
-              <strong>CPA-Helper (Ward)</strong>
+              <strong>CPA-Helper</strong>
               <span class="mobile-version-badge">{{ appVersion }}</span>
             </div>
             <span>{{ accountText }} · {{ roleText }}</span>

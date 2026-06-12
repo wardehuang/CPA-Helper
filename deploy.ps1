@@ -1,8 +1,38 @@
 ﻿$ErrorActionPreference = "Stop"
 
+function Invoke-Checked {
+    param(
+        [scriptblock]$Command,
+        [string]$Description
+    )
+
+    & $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Description failed with exit code $LASTEXITCODE"
+    }
+}
+
+$ProjectRoot = Split-Path -Parent $PSCommandPath
+Set-Location -Path $ProjectRoot
+
+$BaseVersion = (Get-Content -Raw -Path "VERSION").Trim()
+$LocalVersionPath = Join-Path $ProjectRoot "LOCAL_VERSION"
+$CurrentLocalVersion = if (Test-Path $LocalVersionPath) {
+    (Get-Content -Raw -Path $LocalVersionPath).Trim()
+} else {
+    "0000"
+}
+if ($CurrentLocalVersion -notmatch '^\d+$') {
+    throw "LOCAL_VERSION must contain only digits, got: $CurrentLocalVersion"
+}
+$NextLocalVersion = ([int]$CurrentLocalVersion + 1).ToString("0000")
+Set-Content -Path $LocalVersionPath -Value $NextLocalVersion -NoNewline
+$PackageVersion = "$BaseVersion.$NextLocalVersion"
+Write-Host "Packaging version: v$PackageVersion"
+
 Write-Host "Building frontend..."
 cd frontend
-npm run build
+Invoke-Checked { npm run build } "Frontend build"
 cd ..
 
 Write-Host "Copying frontend dist to backend..."
@@ -17,13 +47,13 @@ cd backend
 $env:CGO_ENABLED="0"
 $env:GOOS="linux"
 $env:GOARCH="arm64"
-go build -tags embedded_frontend -trimpath -ldflags="-s -w" -o cpa-helper ./cmd/cpa-helper
+Invoke-Checked { go build -tags embedded_frontend -trimpath -ldflags="-s -w" -o cpa-helper ./cmd/cpa-helper } "Backend build"
 cd ..
 
 Write-Host "Uploading to server..."
-scp -o StrictHostKeyChecking=no -P 28922 -i "E:/Files/SSH Key/oracle-ssh-key-2026-05-16.key" "backend/cpa-helper" ubuntu@163.192.9.157:/tmp/cpa-helper
+Invoke-Checked { scp -o StrictHostKeyChecking=no -P 28922 -i "E:/Files/SSH Key/oracle-ssh-key-2026-05-16.key" "backend/cpa-helper" ubuntu@163.192.9.157:/tmp/cpa-helper } "Upload"
 
 Write-Host "Deploying on server..."
-ssh -o StrictHostKeyChecking=no -p 28922 -i "E:/Files/SSH Key/oracle-ssh-key-2026-05-16.key" ubuntu@163.192.9.157 "sudo systemctl stop cpa-helper && sudo cp /tmp/cpa-helper /opt/cpa-helper/cpa-helper && sudo chmod +x /opt/cpa-helper/cpa-helper && sudo systemctl start cpa-helper && sudo systemctl status cpa-helper --no-pager"
+Invoke-Checked { ssh -o StrictHostKeyChecking=no -p 28922 -i "E:/Files/SSH Key/oracle-ssh-key-2026-05-16.key" ubuntu@163.192.9.157 "sudo systemctl stop cpa-helper && sudo cp /tmp/cpa-helper /opt/cpa-helper/cpa-helper && sudo chmod +x /opt/cpa-helper/cpa-helper && sudo systemctl start cpa-helper && sudo systemctl status cpa-helper --no-pager" } "Remote deploy"
 
 Write-Host "Done!"

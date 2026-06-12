@@ -92,14 +92,11 @@ type AccountStatusPreferences = {
 }
 
 const ACCOUNT_STATUS_PREFERENCE_STORAGE_KEY = 'cpa-helper-codex-keeper-status-preferences'
-const ACCOUNT_TABLE_MIN_ROW_HEIGHT = 52
-const ACCOUNT_TABLE_MAX_HEIGHT = 'min(620px, max(320px, calc(100dvh - 430px)))'
-const ACCOUNT_TABLE_VIRTUAL_THRESHOLD = 200
 const CODEX_FIVE_HOUR_WINDOW_SECONDS = 5 * 60 * 60
 const CODEX_WEEK_WINDOW_SECONDS = 7 * 24 * 60 * 60
 const CODEX_MONTH_WINDOW_SECONDS = 30 * 24 * 60 * 60
-const disabledTableScrollX = 1302
 const normalTableScrollX = 1816
+const disabledTableScrollX = 0
 const KEEPER_STATUS_POLL_INTERVAL_MS = 3000
 const REFRESH_STATUS_POLL_INTERVAL_MS = 1500
 const message = useMessage()
@@ -369,16 +366,10 @@ const activeQuotaSortLabel = computed(() => {
 })
 const sortDirectionMark = computed(() => (accountSort.direction === 'asc' ? '↑' : '↓'))
 
-function accountTableDisplayProps(rowCount: number) {
-  return isDisplayAllAccounts.value && rowCount > ACCOUNT_TABLE_VIRTUAL_THRESHOLD
-    ? {
-        virtualScroll: true,
-        maxHeight: ACCOUNT_TABLE_MAX_HEIGHT,
-        minRowHeight: ACCOUNT_TABLE_MIN_ROW_HEIGHT,
-      }
-    : {
-        virtualScroll: false,
-      }
+function accountTableDisplayProps(_rowCount?: number) {
+  return {
+    virtualScroll: false,
+  }
 }
 
 function accountPageCount(rowCount: number): number {
@@ -1673,7 +1664,6 @@ const disabledActionColumn = computed<DataTableColumns<CodexKeeperAccount>[numbe
   title: '',
   key: 'actions',
   width: 224,
-  fixed: 'right',
   render: (row: CodexKeeperAccount) => {
     return h(
       NSpace,
@@ -1731,7 +1721,6 @@ const normalActionColumn = computed<DataTableColumns<CodexKeeperAccount>[number]
   title: '',
   key: 'actions',
   width: 232,
-  fixed: 'right',
   render: (row: CodexKeeperAccount) => {
     return h(
       NSpace,
@@ -1936,7 +1925,9 @@ onBeforeUnmount(() => {
             <NTag v-if="activeFilterCount > 0" size="small" type="info" :bordered="false">
               {{ t(`已筛选 ${activeFilterCount} 项`, `${activeFilterCount} filters active`) }}
             </NTag>
-            <NIcon :component="ChevronDown" size="18" :style="{ color: 'var(--cpa-text-muted)', transform: isToolbarExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }" />
+            <div :style="{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', transform: isToolbarExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }">
+              <NIcon :component="ChevronDown" size="18" color="var(--cpa-text-muted)" />
+            </div>
           </div>
         </div>
         <NCollapseTransition :show="isToolbarExpanded">
@@ -2078,30 +2069,36 @@ onBeforeUnmount(() => {
                 </template>
                 {{ t(`批量删除（${selectedDisabledCount}）`, `Bulk Delete (${selectedDisabledCount})`) }}
               </NButton>
-              <NIcon :component="ChevronDown" size="18" :style="{ color: 'var(--cpa-text-muted)', marginLeft: '8px', transform: isDisabledSectionExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }" />
+              <div :style="{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', marginLeft: '8px', transform: isDisabledSectionExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }">
+                <NIcon :component="ChevronDown" size="18" color="var(--cpa-text-muted)" />
+              </div>
             </div>
           </div>
           <NCollapseTransition :show="isDisabledSectionExpanded">
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-              <NDataTable
-                class="account-table"
-                size="small"
-                :loading="tableLoading"
-                :columns="disabledColumns"
-                :data="visibleDisabledAccounts"
-                :row-key="accountRowKey"
-                :row-props="accountTableRowProps"
-                :checked-row-keys="selectedDisabledAccountKeys"
-                :pagination="false"
-                v-bind="disabledTableDisplayProps"
-                table-layout="fixed"
-                :scroll-x="disabledTableScrollX"
-                @update:checked-row-keys="handleDisabledSelectionUpdate"
+            <div class="account-table-shell">
+              <div
+                class="account-table-scroll"
+                :style="{ '--account-table-width': `${disabledTableScrollX}px` }"
               >
-                <template #empty>
-                  <div class="empty-state">{{ t('当前筛选下暂无已禁用账号', 'No disabled accounts match the current filter') }}</div>
-                </template>
-              </NDataTable>
+                <NDataTable
+                  class="account-table"
+                  size="small"
+                  :loading="tableLoading"
+                  :columns="disabledColumns"
+                  :data="visibleDisabledAccounts"
+                  :row-key="accountRowKey"
+                  :row-props="accountTableRowProps"
+                  :checked-row-keys="selectedDisabledAccountKeys"
+                  :pagination="false"
+                  v-bind="disabledTableDisplayProps"
+                  table-layout="fixed"
+                  @update:checked-row-keys="handleDisabledSelectionUpdate"
+                >
+                  <template #empty>
+                    <div class="empty-state">{{ t('当前筛选下暂无已禁用账号', 'No disabled accounts match the current filter') }}</div>
+                  </template>
+                </NDataTable>
+              </div>
           <div v-if="showDisabledPagination" class="account-pagination-row">
             <NPagination
               v-model:page="disabledAccountPage"
@@ -2123,28 +2120,34 @@ onBeforeUnmount(() => {
               </p>
             </div>
             <div class="account-section-actions">
-              <NIcon :component="ChevronDown" size="18" :style="{ color: 'var(--cpa-text-muted)', transform: isNormalSectionExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }" />
+              <div :style="{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', transform: isNormalSectionExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }">
+                <NIcon :component="ChevronDown" size="18" color="var(--cpa-text-muted)" />
+              </div>
             </div>
           </div>
           <NCollapseTransition :show="isNormalSectionExpanded">
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-              <NDataTable
-                class="account-table"
-                size="small"
-                :loading="tableLoading"
-                :columns="normalColumns"
-                :data="visibleNormalAccounts"
-                :row-key="accountRowKey"
-                :row-props="accountTableRowProps"
-                :pagination="false"
-                v-bind="normalTableDisplayProps"
-                table-layout="fixed"
-                :scroll-x="normalTableScrollX"
+            <div class="account-table-shell">
+              <div
+                class="account-table-scroll"
+                :style="{ '--account-table-width': `${normalTableScrollX}px` }"
               >
-                <template #empty>
-                  <div class="empty-state">{{ t('当前筛选下暂无正常账号', 'No normal accounts match the current filter') }}</div>
-                </template>
-              </NDataTable>
+                <NDataTable
+                  class="account-table"
+                  size="small"
+                  :loading="tableLoading"
+                  :columns="normalColumns"
+                  :data="visibleNormalAccounts"
+                  :row-key="accountRowKey"
+                  :row-props="accountTableRowProps"
+                  :pagination="false"
+                  v-bind="normalTableDisplayProps"
+                  table-layout="fixed"
+                >
+                  <template #empty>
+                    <div class="empty-state">{{ t('当前筛选下暂无正常账号', 'No normal accounts match the current filter') }}</div>
+                  </template>
+                </NDataTable>
+              </div>
           <div v-if="showNormalPagination" class="account-pagination-row">
             <NPagination
               v-model:page="normalAccountPage"
@@ -2563,8 +2566,10 @@ onBeforeUnmount(() => {
 <style scoped>
 .account-status-page,
 .account-list-panel,
+.account-sections,
 .account-section,
 .account-card-shell,
+.account-table-scroll,
 .account-table {
   min-width: 0;
 }
@@ -2743,7 +2748,10 @@ onBeforeUnmount(() => {
 
 .account-sections {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  max-width: 100%;
+  overflow: hidden;
   padding: 14px;
 }
 
@@ -2788,9 +2796,28 @@ onBeforeUnmount(() => {
   width: 112px;
 }
 
+.account-status-page,
+.account-list-panel {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 .account-section {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+}
+
+.account-table-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  contain: inline-size;
 }
 
 .account-section + .account-section {
@@ -3406,6 +3433,37 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.account-section {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.account-section :deep(.n-collapse-transition),
+.account-section :deep(.n-collapse-transition > *) {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.account-table-scroll {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  contain: inline-size;
+}
+
+.account-table {
+  width: 100%;
+  min-width: var(--account-table-width);
+  max-width: none;
+}
+
 .account-table :deep(.n-data-table-th) {
   white-space: nowrap;
 }
@@ -3724,11 +3782,6 @@ onBeforeUnmount(() => {
 
 :global(.account-actions) {
   justify-content: flex-end;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-:global(.account-table .n-data-table-tr:hover .account-actions) {
-  opacity: 1;
 }
 
 .empty-state {

@@ -1,11 +1,17 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
 function readAppVersion(): string {
-  return readFileSync(fileURLToPath(new URL('../VERSION', import.meta.url)), 'utf8').trim()
+  const baseVersion = readFileSync(fileURLToPath(new URL('../VERSION', import.meta.url)), 'utf8').trim()
+  const localVersionPath = fileURLToPath(new URL('../LOCAL_VERSION', import.meta.url))
+  if (!existsSync(localVersionPath)) {
+    return baseVersion
+  }
+  const localVersion = readFileSync(localVersionPath, 'utf8').trim()
+  return localVersion ? `${baseVersion}.${localVersion.padStart(4, '0')}` : baseVersion
 }
 
 const appVersion = readAppVersion()
