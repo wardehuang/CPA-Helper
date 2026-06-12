@@ -7,16 +7,13 @@ import {
   NDescriptionsItem,
   NDrawer,
   NDrawerContent,
-  NDropdown,
   NIcon,
-  NInput,
   NInputNumber,
   NModal,
   NPagination,
   NSelect,
   NSpace,
   NTag,
-  NCollapseTransition,
   useMessage,
   type DataTableColumns,
   type DataTableRowKey,
@@ -25,7 +22,6 @@ import {
   Activity,
   ArrowLeft,
   BarChart3,
-  ChevronDown,
   ChevronUp,
   CircleDot,
   Gauge,
@@ -64,9 +60,7 @@ import {
   formatUsd,
 } from '@/shared/utils/format'
 
-type FixedPriorityFilter = 'all' | 'high' | 'minusOne' | 'low'
-type PriorityTypeFilter = `type:${string}`
-type PriorityFilter = FixedPriorityFilter | PriorityTypeFilter
+type PriorityFilter = 'all' | 'minusOne'
 type AccountStatusFilter = 'all' | 'enabled' | 'disabled' | 'unauthorized' | 'quotaExhausted'
 type AccountDisplaySize = 50 | 100 | 150 | 200 | 'all'
 type AccountListViewMode = 'table' | 'bar' | 'ring'
@@ -95,8 +89,7 @@ const ACCOUNT_STATUS_PREFERENCE_STORAGE_KEY = 'cpa-helper-codex-keeper-status-pr
 const CODEX_FIVE_HOUR_WINDOW_SECONDS = 5 * 60 * 60
 const CODEX_WEEK_WINDOW_SECONDS = 7 * 24 * 60 * 60
 const CODEX_MONTH_WINDOW_SECONDS = 30 * 24 * 60 * 60
-const normalTableScrollX = 1816
-const disabledTableScrollX = 0
+const normalTableScrollX = 1540
 const KEEPER_STATUS_POLL_INTERVAL_MS = 3000
 const REFRESH_STATUS_POLL_INTERVAL_MS = 1500
 const message = useMessage()
@@ -111,14 +104,9 @@ const keeperStatus = ref<CodexKeeperStatus | null>(null)
 const selectedAccount = ref<CodexKeeperAccount | null>(null)
 const selectedDisabledAccountKeys = ref<DataTableRowKey[]>([])
 const refreshSelectMode = ref(false)
-const isToolbarExpanded = ref(true)
-const isDisabledSectionExpanded = ref(true)
-const isNormalSectionExpanded = ref(true)
 const selectedRefreshAccountNames = ref<string[]>([])
 const detailOpen = ref(false)
 const accountDisplaySize = ref<AccountDisplaySize>(50)
-const disabledAccountPage = ref(1)
-const normalAccountPage = ref(1)
 const cardAccountPage = ref(1)
 const accountListViewMode = ref<AccountListViewMode>('table')
 const filters = reactive({
@@ -158,21 +146,7 @@ const priorityRuleMap = computed(() =>
 )
 const priorityFilterOptions = computed<Array<{ label: string; value: PriorityFilter }>>(() => [
   { label: t('全部优先级', 'All Priorities'), value: 'all' },
-  { label: t('手动优先 >20', 'Manual Priority >20'), value: 'high' },
-  ...[...priorityRules.value]
-    .filter((rule) => rule.priority >= 0 && rule.priority <= 20)
-    .sort((left, right) => {
-      const priorityDiff = right.priority - left.priority
-      return priorityDiff === 0
-        ? left.account_type.localeCompare(right.account_type)
-        : priorityDiff
-    })
-    .map((rule) => ({
-      label: `${formatInteger(rule.priority)} (${rule.account_type})`,
-      value: priorityTypeFilter(rule.account_type),
-    })),
   { label: t('临时降级', 'Temporary Downgrade'), value: 'minusOne' },
-  { label: t('手动低优先 <-1', 'Manual Low Priority <-1'), value: 'low' },
 ])
 const accountDisplaySizeOptions = computed<Array<{ label: string; value: AccountDisplaySize }>>(() => [
   { label: '50', value: 50 },
@@ -275,7 +249,7 @@ const activeFilterCount = computed(
     Number(filters.priority !== 'all') +
     Number(filters.status !== 'all'),
 )
-const isTableView = computed(() => accountListViewMode.value === 'table')
+const isTableView = computed(() => true)
 const isBarCardView = computed(() => accountListViewMode.value === 'bar')
 const accountListViewLabel = computed(() => {
   if (accountListViewMode.value === 'bar') {
@@ -286,74 +260,41 @@ const accountListViewLabel = computed(() => {
   }
   return t('表格', 'Table')
 })
-const sortedCardAccounts = computed(() => [
-  ...filteredDisabledAccounts.value,
-  ...filteredNormalAccounts.value,
-])
-const isDisplayAllAccounts = computed(() => accountDisplaySize.value === 'all')
-const disabledTableDisplayProps = computed(() =>
-  accountTableDisplayProps(visibleDisabledAccounts.value.length),
+const sortedTableAccounts = computed(() =>
+  sortAccountsForDisplay(filteredAccounts.value, compareNormalAccounts),
 )
-const normalTableDisplayProps = computed(() =>
-  accountTableDisplayProps(visibleNormalAccounts.value.length),
+const sortedCardAccounts = computed(() => sortedTableAccounts.value)
+const isDisplayAllAccounts = computed(() => accountDisplaySize.value === 'all')
+const tableDisplayProps = computed(() =>
+  accountTableDisplayProps(visibleTableAccounts.value.length),
 )
 const accountPaginationPageSize = computed(() =>
   accountDisplaySize.value === 'all' ? 1 : accountDisplaySize.value,
 )
-const disabledAccountPageCount = computed(() => accountPageCount(filteredDisabledAccounts.value.length))
-const normalAccountPageCount = computed(() => accountPageCount(filteredNormalAccounts.value.length))
-const cardAccountPageCount = computed(() => accountPageCount(sortedCardAccounts.value.length))
-const showDisabledPagination = computed(() =>
-  shouldShowAccountPagination(filteredDisabledAccounts.value.length),
+const tableAccountPageCount = computed(() => accountPageCount(sortedTableAccounts.value.length))
+const cardAccountPageCount = computed(() => tableAccountPageCount.value)
+const showAccountPagination = computed(() =>
+  shouldShowAccountPagination(sortedTableAccounts.value.length),
 )
-const showNormalPagination = computed(() =>
-  shouldShowAccountPagination(filteredNormalAccounts.value.length),
+const showCardPagination = computed(() => showAccountPagination.value)
+const visibleTableAccounts = computed(() =>
+  pagedAccounts(sortedTableAccounts.value, cardAccountPage.value),
 )
-const showCardPagination = computed(() =>
-  shouldShowAccountPagination(sortedCardAccounts.value.length),
-)
-const visibleDisabledAccounts = computed(() =>
-  pagedAccounts(filteredDisabledAccounts.value, disabledAccountPage.value),
-)
-const visibleNormalAccounts = computed(() =>
-  pagedAccounts(filteredNormalAccounts.value, normalAccountPage.value),
-)
-const visibleCardAccounts = computed(() =>
-  pagedAccounts(sortedCardAccounts.value, cardAccountPage.value),
-)
-const disabledSectionDisplayText = computed(() =>
+const visibleCardAccounts = computed(() => visibleTableAccounts.value)
+const tableSectionDisplayText = computed(() =>
   accountDisplayText(
-    visibleDisabledAccounts.value.length,
-    filteredDisabledAccounts.value.length,
-    disabledAccountPage.value,
-    disabledAccountPageCount.value,
-  ),
-)
-const normalSectionDisplayText = computed(() =>
-  accountDisplayText(
-    visibleNormalAccounts.value.length,
-    filteredNormalAccounts.value.length,
-    normalAccountPage.value,
-    normalAccountPageCount.value,
-  ),
-)
-const cardSectionDisplayText = computed(() =>
-  accountDisplayText(
-    visibleCardAccounts.value.length,
-    sortedCardAccounts.value.length,
+    visibleTableAccounts.value.length,
+    sortedTableAccounts.value.length,
     cardAccountPage.value,
-    cardAccountPageCount.value,
+    tableAccountPageCount.value,
   ),
 )
+const cardSectionDisplayText = computed(() => tableSectionDisplayText.value)
 const showCardLoadingState = computed(() => isLoading.value && accounts.value.length === 0)
 const displaySizeHelpText = computed(() =>
-  isTableView.value
-    ? isDisplayAllAccounts.value
-      ? t('当前筛选结果全部展示，账号较多时自动使用虚拟滚动。', 'All filtered results are shown. Virtual scrolling is used automatically for large account sets.')
-      : t(`每个分组每页显示 ${accountDisplaySize.value} 个账号。`, `${accountDisplaySize.value} accounts per group per page.`)
-    : isDisplayAllAccounts.value
-      ? t('当前筛选结果全部以卡片展示，账号较多时使用轻量渲染优化。', 'All filtered results are shown as cards. Lightweight rendering is used for large account sets.')
-      : t(`统一列表每页显示 ${accountDisplaySize.value} 个账号。`, `${accountDisplaySize.value} accounts per page in the unified list.`),
+  isDisplayAllAccounts.value
+    ? t('当前筛选结果全部展示，账号较多时自动使用虚拟滚动。', 'All filtered results are shown. Virtual scrolling is used automatically for large account sets.')
+    : t(`统一列表每页显示 ${accountDisplaySize.value} 个账号。`, `${accountDisplaySize.value} accounts per page in the unified list.`),
 )
 const activeQuotaSortLabel = computed(() => {
   if (accountSort.key === 'quotaDay') {
@@ -412,15 +353,11 @@ function clampPage(page: number, pageCount: number): number {
 }
 
 function resetAccountPages() {
-  disabledAccountPage.value = 1
-  normalAccountPage.value = 1
   cardAccountPage.value = 1
 }
 
 function clampAccountPages() {
-  disabledAccountPage.value = clampPage(disabledAccountPage.value, disabledAccountPageCount.value)
-  normalAccountPage.value = clampPage(normalAccountPage.value, normalAccountPageCount.value)
-  cardAccountPage.value = clampPage(cardAccountPage.value, cardAccountPageCount.value)
+  cardAccountPage.value = clampPage(cardAccountPage.value, tableAccountPageCount.value)
 }
 
 function isAccountDisplaySize(value: unknown): value is AccountDisplaySize {
@@ -601,23 +538,8 @@ const priorityModeOptions = computed(() => {
 })
 
 function matchesPriorityFilter(account: CodexKeeperAccount, value: PriorityFilter): boolean {
-  const priority = accountPriority(account)
-  if (value === 'high') {
-    return priority > 20
-  }
   if (value === 'minusOne') {
-    return priority === -1
-  }
-  if (value === 'low') {
-    return priority < -1
-  }
-  const accountType = priorityTypeFromFilter(value)
-  if (accountType !== null) {
-    return (
-      account.account_type === accountType &&
-      priority >= 0 &&
-      priority <= 20
-    )
+    return accountPriority(account) === -1
   }
   return true
 }
@@ -689,14 +611,6 @@ function accountPriority(account: CodexKeeperAccount): number {
 
 function isQuotaExhaustedAccount(account: CodexKeeperAccount): boolean {
   return !account.disabled && accountPriority(account) === -1
-}
-
-function priorityTypeFilter(accountType: string): PriorityTypeFilter {
-  return `type:${accountType}`
-}
-
-function priorityTypeFromFilter(value: PriorityFilter): string | null {
-  return value.startsWith('type:') ? value.slice('type:'.length) : null
 }
 
 function normalAccountTypePriority(account: CodexKeeperAccount): number {
@@ -1117,26 +1031,57 @@ function renderQuotaUsageCell(account: CodexKeeperAccount) {
   )
 }
 
+function displayAccountName(account: CodexKeeperAccount): string {
+  const source = account.email?.trim() || account.name
+  return source.split('@')[0] || source
+}
+
+function accountStatusLabel(account: CodexKeeperAccount): string {
+  if (account.disabled) {
+    return t('已禁用', 'Disabled')
+  }
+  if (isQuotaExhaustedAccount(account)) {
+    return t('额度耗尽', 'Quota Exhausted')
+  }
+  return t('启用中', 'Enabled')
+}
+
 function renderAccountIdentityCell(account: CodexKeeperAccount) {
-  const primary = account.email ?? account.name
-  const statusCode = disabledStatusCodeText(account)
-  const statusLabel = `${account.disabled ? t('已禁用', 'Disabled') : t('启用中', 'Enabled')}${statusCode ? ` ${statusCode}` : ''}`
+  const text = displayAccountName(account)
+  const source = account.email?.trim() || account.name
   return h(
     'div',
     {
       class: 'account-table-identity',
-      title: `${primary}\n${account.name}\n${t('状态', 'Status')} ${statusLabel}`,
+      title: source,
     },
+    [h('span', { class: 'account-table-email' }, text)],
+  )
+}
+
+function renderAccountStatusCell(account: CodexKeeperAccount) {
+  const statusCode = disabledStatusCodeText(account)
+  return h(
+    'div',
+    { class: 'account-status-cell' },
     [
-      h('span', { class: 'account-table-email' }, primary),
-      h('span', { class: 'account-table-name' }, account.name),
-      h('span', { class: 'account-table-meta' }, [
-        h(
-          'span',
-          { class: ['account-table-chip', account.disabled ? 'is-warning' : 'is-success'] },
-          statusLabel,
-        ),
-      ]),
+      h(
+        'span',
+        {
+          class: [
+            'account-table-chip',
+            account.disabled
+              ? 'is-warning'
+              : isQuotaExhaustedAccount(account)
+                ? 'is-quota-exhausted'
+                : 'is-success',
+          ],
+        },
+        accountStatusLabel(account),
+      ),
+      statusCode
+        ? h('span', { class: 'account-status-code-badge', title: `HTTP ${statusCode}` }, statusCode)
+        : null,
     ],
   )
 }
@@ -1166,18 +1111,6 @@ function renderLastCheckedCell(account: CodexKeeperAccount) {
     {
       class: ['account-table-value-pill', 'is-time', text === '-' ? 'is-empty' : ''],
       title: text,
-    },
-    text,
-  )
-}
-
-function renderLatestActionCell(account: CodexKeeperAccount) {
-  const text = latestActionText(account)
-  return h(
-    'span',
-    {
-      class: ['account-table-value-pill', 'is-action', text === '-' ? 'is-empty' : ''],
-      title: text === '-' ? undefined : text,
     },
     text,
   )
@@ -1218,7 +1151,7 @@ function handleDisabledSelectionUpdate(keys: DataTableRowKey[]) {
 }
 
 function pruneSelectedDisabledAccountKeys() {
-  const availableNames = new Set(visibleDisabledAccounts.value.map((account) => account.name))
+  const availableNames = new Set(filteredDisabledAccounts.value.map((account) => account.name))
   selectedDisabledAccountKeys.value = selectedDisabledAccountKeys.value.filter((key) =>
     availableNames.has(String(key)),
   )
@@ -1609,12 +1542,102 @@ async function runAccountAction(
   }
 }
 
-const baseColumns = computed<DataTableColumns<CodexKeeperAccount>>(() => [
+const accountActionColumn = computed<DataTableColumns<CodexKeeperAccount>[number]>(() => ({
+  title: t('操作', 'Actions'),
+  key: 'actions',
+  width: 232,
+  render: (row: CodexKeeperAccount) => {
+    const toggleAction = row.disabled
+      ? h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            type: 'primary',
+            disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
+            loading: isActionLoading(row, 'toggle'),
+            onClick: () => confirmEnableAccount(row),
+          },
+          { default: () => t('启用', 'Enable') },
+        )
+      : h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            type: 'warning',
+            disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
+            loading: isActionLoading(row, 'toggle'),
+            onClick: () => confirmDisableAccount(row),
+          },
+          { default: () => t('禁用', 'Disable') },
+        )
+    const secondaryAction = row.disabled
+      ? h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            type: 'error',
+            disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
+            loading: isActionLoading(row, 'delete'),
+            onClick: () => confirmDeleteAccount(row),
+          },
+          { default: () => t('删除', 'Delete') },
+        )
+      : h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
+            onClick: () => openPriorityDialog(row),
+          },
+          { default: () => t('优先级', 'Priority') },
+        )
+
+    return h(
+      NSpace,
+      { class: 'account-actions', size: 4, wrap: false },
+      {
+        default: () => [
+          h(
+            NButton,
+            { size: 'small', quaternary: true, onClick: () => openDetail(row) },
+            { default: () => t('详情', 'Details') },
+          ),
+          toggleAction,
+          secondaryAction,
+          h(
+            NButton,
+            {
+              size: 'small',
+              quaternary: true,
+              type: 'primary',
+              disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
+              loading: isActionLoading(row, 'refresh'),
+              onClick: () => refreshAccount(row),
+            },
+            { default: () => t('刷新', 'Refresh') },
+          ),
+        ],
+      },
+    )
+  },
+}))
+
+const accountColumns = computed<DataTableColumns<CodexKeeperAccount>>(() => [
   {
     title: t('账号', 'Account'),
     key: 'identity',
-    width: 360,
+    width: 220,
     render: (row) => renderAccountIdentityCell(row),
+  },
+  {
+    title: t('状态', 'Status'),
+    key: 'status',
+    width: 104,
+    render: (row) => renderAccountStatusCell(row),
   },
   {
     title: t('类型', 'Type'),
@@ -1635,9 +1658,9 @@ const baseColumns = computed<DataTableColumns<CodexKeeperAccount>>(() => [
     render: (row) => renderQuotaCell(row),
   },
   {
-    title: t('窗口用量', 'Window Usage'),
+    title: t('用量', 'Usage'),
     key: 'quota_usage',
-    width: 280,
+    width: 360,
     render: (row) => renderQuotaUsageCell(row),
   },
   {
@@ -1646,145 +1669,7 @@ const baseColumns = computed<DataTableColumns<CodexKeeperAccount>>(() => [
     width: 150,
     render: (row) => renderLastCheckedCell(row),
   },
-  {
-    title: t('最近操作', 'Latest Action'),
-    key: 'latest_action',
-    width: 340,
-    render: (row) => renderLatestActionCell(row),
-  },
-])
-
-const disabledBaseColumns = computed<DataTableColumns<CodexKeeperAccount>>(
-  () => baseColumns.value.filter(
-    (column) => !('key' in column) || (column.key !== 'quota' && column.key !== 'quota_usage'),
-  ),
-)
-
-const disabledActionColumn = computed<DataTableColumns<CodexKeeperAccount>[number]>(() => ({
-  title: '',
-  key: 'actions',
-  width: 224,
-  render: (row: CodexKeeperAccount) => {
-    return h(
-      NSpace,
-      { class: 'account-actions', size: 4, wrap: false },
-      {
-        default: () => [
-          h(
-            NButton,
-            { size: 'small', quaternary: true, onClick: () => openDetail(row) },
-            { default: () => t('详情', 'Details') },
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              type: 'primary',
-              disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
-              loading: isActionLoading(row, 'toggle'),
-              onClick: () => confirmEnableAccount(row),
-            },
-            { default: () => t('启用', 'Enable') },
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              type: 'error',
-              disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
-              loading: isActionLoading(row, 'delete'),
-              onClick: () => confirmDeleteAccount(row),
-            },
-            { default: () => t('删除', 'Delete') },
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              type: 'primary',
-              disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
-              loading: isActionLoading(row, 'refresh'),
-              onClick: () => refreshAccount(row),
-            },
-            { default: () => t('刷新', 'Refresh') },
-          ),
-        ],
-      },
-    )
-  },
-}))
-
-const normalActionColumn = computed<DataTableColumns<CodexKeeperAccount>[number]>(() => ({
-  title: '',
-  key: 'actions',
-  width: 232,
-  render: (row: CodexKeeperAccount) => {
-    return h(
-      NSpace,
-      { class: 'account-actions', size: 4, wrap: false },
-      {
-        default: () => [
-          h(
-            NButton,
-            { size: 'small', quaternary: true, onClick: () => openDetail(row) },
-            { default: () => t('详情', 'Details') },
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              type: 'warning',
-              disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
-              loading: isActionLoading(row, 'toggle'),
-              onClick: () => confirmDisableAccount(row),
-            },
-            { default: () => t('禁用', 'Disable') },
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
-              onClick: () => openPriorityDialog(row),
-            },
-            { default: () => t('优先级', 'Priority') },
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              type: 'primary',
-              disabled: isRowActing(row) || isBulkDeleting.value || isBulkRefreshing.value,
-              loading: isActionLoading(row, 'refresh'),
-              onClick: () => refreshAccount(row),
-            },
-            { default: () => t('刷新', 'Refresh') },
-          ),
-        ],
-      },
-    )
-  },
-}))
-
-const disabledColumns = computed<DataTableColumns<CodexKeeperAccount>>(() => [
-  {
-    type: 'selection',
-    width: 44,
-    disabled: (row: CodexKeeperAccount) => isRowActing(row) || isBulkDeleting.value,
-  },
-  ...disabledBaseColumns.value,
-  disabledActionColumn.value,
-])
-
-const normalColumns = computed<DataTableColumns<CodexKeeperAccount>>(() => [
-  ...baseColumns.value,
-  normalActionColumn.value,
+  accountActionColumn.value,
 ])
 
 restoreAccountStatusPreferences()
@@ -1806,11 +1691,8 @@ watch(
   ],
   resetAccountPages,
 )
-watch(
-  [disabledAccountPageCount, normalAccountPageCount, cardAccountPageCount],
-  clampAccountPages,
-)
-watch(visibleDisabledAccounts, pruneSelectedDisabledAccountKeys)
+watch([tableAccountPageCount], clampAccountPages)
+watch(filteredDisabledAccounts, pruneSelectedDisabledAccountKeys)
 watch(filteredAccounts, pruneSelectedRefreshAccountNames)
 
 onMounted(() => {
@@ -1911,253 +1793,54 @@ onBeforeUnmount(() => {
 
     <section class="panel account-list-panel">
       <div class="status-toolbar">
-        <div class="toolbar-heading" style="cursor: pointer;" @click="isToolbarExpanded = !isToolbarExpanded">
+        <div class="toolbar-heading">
           <div class="toolbar-title-group">
             <h2 class="toolbar-title">{{ t('账号列表', 'Account List') }}</h2>
             <p class="toolbar-subtitle">
-              {{ t(`正常 ${filteredNormalAccounts.length} / ${enabledAccountCount} 个账号`, `Normal ${filteredNormalAccounts.length} / ${enabledAccountCount} accounts`) }}
-              <template v-if="hasDisabledAccounts">
-                {{ t(`，已禁用 ${filteredDisabledAccounts.length} / ${disabledAccountCount} 个账号`, `, disabled ${filteredDisabledAccounts.length} / ${disabledAccountCount} accounts`) }}
-              </template>
+              {{ tableSectionDisplayText }}
             </p>
           </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <NTag v-if="activeFilterCount > 0" size="small" type="info" :bordered="false">
-              {{ t(`已筛选 ${activeFilterCount} 项`, `${activeFilterCount} filters active`) }}
-            </NTag>
-            <div :style="{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', transform: isToolbarExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }">
-              <NIcon :component="ChevronDown" size="18" color="var(--cpa-text-muted)" />
-            </div>
-          </div>
+          <NTag v-if="activeFilterCount > 0" size="small" type="info" :bordered="false">
+            {{ t(`已筛选 ${activeFilterCount} 项`, `${activeFilterCount} filters active`) }}
+          </NTag>
         </div>
-        <NCollapseTransition :show="isToolbarExpanded">
-          <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
-            <div class="filter-grid">
-              <NInput v-model:value="filters.keyword" clearable :placeholder="t('搜索账号或邮箱', 'Search account or email')" />
-              <NSelect
-                v-model:value="filters.accountType"
-                :options="accountTypeOptions"
-                clearable
-                filterable
-                :placeholder="t('账号类型', 'Account Type')"
-              />
-              <NSelect
-                v-model:value="filters.priority"
-                :options="priorityFilterOptions"
-              />
-            </div>
-        <div class="list-control-row">
-          <div class="list-main-controls">
-            <NDropdown
-              trigger="click"
-              :options="accountListViewOptions"
-              @select="handleAccountListViewSelect"
-            >
-              <NButton secondary size="small">
-                <template #icon>
-                  <NIcon :component="ChevronDown" />
-                </template>
-                {{ t(`切换样式：${accountListViewLabel}`, `Switch View: ${accountListViewLabel}`) }}
-              </NButton>
-            </NDropdown>
-            <NButton
-              secondary
-              size="small"
-              :type="refreshSelectMode ? 'primary' : 'default'"
-              @click="toggleRefreshSelectMode"
-            >
-              {{ t('多选刷新', 'Multi-select Refresh') }}
-            </NButton>
-            <template v-if="refreshSelectMode">
-              <NTag size="small" type="info" :bordered="false">
-                {{ t(`${selectedRefreshCount} 已选`, `${selectedRefreshCount} selected`) }}
-              </NTag>
-              <NButton
-                secondary
-                size="small"
-                :disabled="filteredAccountNames.length === 0 || isBulkRefreshing"
-                @click="selectAllFilteredRefreshAccounts"
-              >
-                {{ t('全选当前筛选', 'Select Current Filter') }}
-              </NButton>
-              <NButton
-                secondary
-                type="primary"
-                size="small"
-                :disabled="!canRefreshSelected"
-                :loading="isBulkRefreshing"
-                @click="refreshSelectedAccounts"
-              >
-                {{ t('刷新已选', 'Refresh Selected') }}
-              </NButton>
-              <NButton secondary size="small" :disabled="isBulkRefreshing" @click="exitRefreshSelectMode">
-                {{ t('退出选择', 'Exit Selection') }}
-              </NButton>
-            </template>
-          </div>
-          <div class="sort-control-row" :aria-label="t('账号排序', 'Account Sorting')">
-            <span class="sort-control-label">{{ t('排序', 'Sort') }}</span>
-            <NDropdown trigger="click" :options="quotaSortOptions" @select="handleQuotaSortSelect">
-              <NButton
-                secondary
-                size="small"
-                :type="accountSort.key === 'quotaDay' || accountSort.key === 'quotaWeek' ? 'primary' : 'default'"
-              >
-                {{ activeQuotaSortLabel ? t(`额度窗口：${activeQuotaSortLabel} ${sortDirectionMark}`, `Quota Window: ${activeQuotaSortLabel} ${sortDirectionMark}`) : t('额度窗口', 'Quota Window') }}
-              </NButton>
-            </NDropdown>
-            <NButton
-              secondary
-              size="small"
-              :type="isAccountSortActive('accountType') ? 'primary' : 'default'"
-              @click="toggleAccountSort('accountType')"
-            >
-              {{ t('类型', 'Type') }} {{ accountSortMark('accountType') }}
-            </NButton>
-            <NButton
-              secondary
-              size="small"
-              :type="isAccountSortActive('status') ? 'primary' : 'default'"
-              @click="toggleAccountSort('status')"
-            >
-              {{ t('状态', 'Status') }} {{ accountSortMark('status') }}
-            </NButton>
-            <NButton
-              secondary
-              size="small"
-              :type="isAccountSortActive('priority') ? 'primary' : 'default'"
-              @click="toggleAccountSort('priority')"
-            >
-              {{ t('优先级', 'Priority') }} {{ accountSortMark('priority') }}
-            </NButton>
-            <NButton
-              secondary
-              size="small"
-              :type="isAccountSortActive('lastCheckedAt') ? 'primary' : 'default'"
-              @click="toggleAccountSort('lastCheckedAt')"
-            >
-              {{ t('最近巡检', 'Last Inspection') }} {{ accountSortMark('lastCheckedAt') }}
-            </NButton>
-          </div>
-          </div>
-          </div>
-        </NCollapseTransition>
       </div>
 
       <div v-if="isTableView" class="account-sections">
         <div v-if="showTableLoadingState" class="empty-state">{{ t('账号加载中...', 'Loading accounts...') }}</div>
         <div v-else-if="showEmptyTableState" class="empty-state">{{ t('当前筛选下暂无账号', 'No accounts match the current filter') }}</div>
-        <section v-if="showDisabledSection" class="account-section">
-          <div class="account-section-header" style="cursor: pointer;" @click="isDisabledSectionExpanded = !isDisabledSectionExpanded">
-            <div class="account-section-title-group">
-              <h3 class="account-section-title">{{ t('已禁用账号', 'Disabled Accounts') }}</h3>
-              <p class="account-section-subtitle">
-                {{ disabledSectionDisplayText }}
-              </p>
-            </div>
-            <div class="account-section-actions">
-              <NButton
-                secondary
-                type="error"
+        <section v-else class="account-section">
+          <div class="account-table-shell">
+            <div
+              class="account-table-scroll"
+              :style="{ '--account-table-width': `${normalTableScrollX}px` }"
+            >
+              <NDataTable
+                class="account-table"
                 size="small"
-                :disabled="!canBulkDelete"
-                :loading="isBulkDeleting"
-                @click.stop="openBulkDeleteDialog"
+                :loading="tableLoading"
+                :columns="accountColumns"
+                :data="visibleTableAccounts"
+                :row-key="accountRowKey"
+                :row-props="accountTableRowProps"
+                :pagination="false"
+                v-bind="tableDisplayProps"
+                table-layout="fixed"
               >
-                <template #icon>
-                  <NIcon :component="Trash2" />
+                <template #empty>
+                  <div class="empty-state">{{ t('当前筛选下暂无账号', 'No accounts match the current filter') }}</div>
                 </template>
-                {{ t(`批量删除（${selectedDisabledCount}）`, `Bulk Delete (${selectedDisabledCount})`) }}
-              </NButton>
-              <div :style="{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', marginLeft: '8px', transform: isDisabledSectionExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }">
-                <NIcon :component="ChevronDown" size="18" color="var(--cpa-text-muted)" />
-              </div>
+              </NDataTable>
+            </div>
+            <div v-if="showAccountPagination" class="account-pagination-row">
+              <NPagination
+                v-model:page="cardAccountPage"
+                size="small"
+                :page-size="accountPaginationPageSize"
+                :item-count="sortedTableAccounts.length"
+              />
             </div>
           </div>
-          <NCollapseTransition :show="isDisabledSectionExpanded">
-            <div class="account-table-shell">
-              <div
-                class="account-table-scroll"
-                :style="{ '--account-table-width': `${disabledTableScrollX}px` }"
-              >
-                <NDataTable
-                  class="account-table"
-                  size="small"
-                  :loading="tableLoading"
-                  :columns="disabledColumns"
-                  :data="visibleDisabledAccounts"
-                  :row-key="accountRowKey"
-                  :row-props="accountTableRowProps"
-                  :checked-row-keys="selectedDisabledAccountKeys"
-                  :pagination="false"
-                  v-bind="disabledTableDisplayProps"
-                  table-layout="fixed"
-                  @update:checked-row-keys="handleDisabledSelectionUpdate"
-                >
-                  <template #empty>
-                    <div class="empty-state">{{ t('当前筛选下暂无已禁用账号', 'No disabled accounts match the current filter') }}</div>
-                  </template>
-                </NDataTable>
-              </div>
-          <div v-if="showDisabledPagination" class="account-pagination-row">
-            <NPagination
-              v-model:page="disabledAccountPage"
-              size="small"
-              :page-size="accountPaginationPageSize"
-              :item-count="filteredDisabledAccounts.length"
-            />
-            </div>
-            </div>
-          </NCollapseTransition>
-        </section>
-
-        <section v-if="showNormalSection" class="account-section">
-          <div class="account-section-header" style="cursor: pointer;" @click="isNormalSectionExpanded = !isNormalSectionExpanded">
-            <div class="account-section-title-group">
-              <h3 class="account-section-title">{{ t('正常账号', 'Normal Accounts') }}</h3>
-              <p class="account-section-subtitle">
-                {{ normalSectionDisplayText }}
-              </p>
-            </div>
-            <div class="account-section-actions">
-              <div :style="{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', transform: isNormalSectionExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }">
-                <NIcon :component="ChevronDown" size="18" color="var(--cpa-text-muted)" />
-              </div>
-            </div>
-          </div>
-          <NCollapseTransition :show="isNormalSectionExpanded">
-            <div class="account-table-shell">
-              <div
-                class="account-table-scroll"
-                :style="{ '--account-table-width': `${normalTableScrollX}px` }"
-              >
-                <NDataTable
-                  class="account-table"
-                  size="small"
-                  :loading="tableLoading"
-                  :columns="normalColumns"
-                  :data="visibleNormalAccounts"
-                  :row-key="accountRowKey"
-                  :row-props="accountTableRowProps"
-                  :pagination="false"
-                  v-bind="normalTableDisplayProps"
-                  table-layout="fixed"
-                >
-                  <template #empty>
-                    <div class="empty-state">{{ t('当前筛选下暂无正常账号', 'No normal accounts match the current filter') }}</div>
-                  </template>
-                </NDataTable>
-              </div>
-          <div v-if="showNormalPagination" class="account-pagination-row">
-            <NPagination
-              v-model:page="normalAccountPage"
-              size="small"
-              :page-size="accountPaginationPageSize"
-              :item-count="filteredNormalAccounts.length"
-            />
-            </div>
-            </div>
-          </NCollapseTransition>
         </section>
       </div>
       <div v-else class="account-card-shell">
@@ -2532,7 +2215,7 @@ onBeforeUnmount(() => {
         <NSelect
           :value="priorityDialog.mode"
           :options="priorityModeOptions"
-          @update:value="(value) => setPriorityDialogMode(value as PriorityMode)"
+          @update:value="(value: PriorityMode) => setPriorityDialogMode(value)"
         />
         <NInputNumber
           v-if="priorityDialog.mode !== 'default'"
@@ -2564,6 +2247,18 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.account-status-page {
+  --account-collapse-duration: 420ms;
+  --account-collapse-easing: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.account-status-page :deep(.fade-in-height-expand-transition-enter-active),
+.account-status-page :deep(.fade-in-height-expand-transition-leave-active) {
+  transition-duration: var(--account-collapse-duration) !important;
+  transition-timing-function: var(--account-collapse-easing) !important;
+  will-change: max-height, opacity, margin-top, margin-bottom, padding-top, padding-bottom;
+}
+
 .account-status-page,
 .account-list-panel,
 .account-sections,
